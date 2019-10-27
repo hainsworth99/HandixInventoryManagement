@@ -13,7 +13,13 @@ conn.connect((err) => {
   console.log('Mysql Connected...');
 });
 
+/*
+*********************************************************************************************************
+* parts requests ****************************************************************************************
+*********************************************************************************************************
+*/
 
+// get all parts
 app.get('/api/parts', (req, res) => {
     let sql = "SELECT * FROM part";
     let query = conn.query(sql, (err, results) => {
@@ -22,6 +28,58 @@ app.get('/api/parts', (req, res) => {
     });
 });
 
+// create new part (basic CRUD)
+app.post('/api/parts',(req, res) => {
+    let data = {
+        PartID: req.body.PartID,
+        PartName: req.body.PartName,
+        PartDescription: req.body.PartDescription,
+        QuantityPerPops: req.body.QuantityPerPops,
+        CostPerUnit: req.body.CostPerUnit,
+        URLForReorder: req.body.URLForReorder,
+        CurrentInventoryCount: req.body.CurrentInventoryCount,
+        PartNotes: req.body.PartNotes
+    };
+    let sql = "INSERT INTO part SET ?";
+    let query = conn.query(sql, data,(err, results) => {
+        if(err) throw err;
+        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+    });
+});
+
+// read part (basic CRUD)
+app.get('/api/parts/:id', (req, res) => {
+    let sql = "SELECT * FROM part WHERE PartID='" + req.params.id + "'";
+    let query = conn.query(sql, (err, results) => {
+        if(err) throw err;
+        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+    });
+});
+
+// update part (basic CRUD)
+app.put('/api/parts/:id',(req, res) => {
+    let sql = "UPDATE part SET PartID='" + req.body.PartID + "', PartName='" + req.body.PartName + "', PartDescription='" + req.body.PartDescription + "', QuantityPerPops='" + req.body.QuantityPerPops + "', CostPerUnit='" + req.body.CostPerUnit + "', URLForReorder='" + req.body.URLForReorder + "', CurrentInventoryCount='" + req.body.CurrentInventoryCount + "', PartNotes='" + req.body.PartNotes + "' WHERE PartID='" + req.params.id + "'";
+    let query = conn.query(sql, (err, results) => {
+        if(err) throw err;
+        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+    });
+});
+
+// delete part (basic CRUD)
+app.delete('/api/parts/:id',(req, res) => {
+  let sql = "DELETE FROM part WHERE PartID='"+req.params.id+"'";
+  let query = conn.query(sql, (err, results) => {
+    if(err) throw err;
+      res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+  });
+});
+
+/*
+***********************************************************************************************************
+* assemblies requests *************************************************************************************
+***********************************************************************************************************
+*/
+// get all assemblies
 app.get('/api/assemblies', (req, res) => {
     let sql = "SELECT * FROM assembly";
     let query = conn.query(sql, (err, results) => {
@@ -30,6 +88,7 @@ app.get('/api/assemblies', (req, res) => {
     });
 });
 
+// get assembly
 app.get('/api/assemblies/:id', (req, res) => {
     console.log(req.url)
 
