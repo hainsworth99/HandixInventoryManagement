@@ -144,6 +144,55 @@ app.delete('/api/assemblies/:id', (req, res) => {
     });
 });
 
+/*
+***********************************************************************************************************
+* part-assembly relationship requests *********************************************************************
+***********************************************************************************************************
+*/
+
+// create new part-assembly relationship (basic CRUD)
+app.post('/api/parts_in_assembly', (req, res) => {
+    let data = {
+        Assembly_AssemblyID: req.body.AssemblyID,
+        Part_PartID: req.body.PartID,
+        PartCountPerAssembly: req.body.PartCountPerAssembly
+    };
+    let sql = "INSERT INTO Part_has_Assembly SET ?";
+    let query = conn.query(sql, data, (err, results) => {
+        if(err) throw err;
+        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+    });
+});
+
+// read part-assembly relationship (basic CRUD)
+app.get('/api/parts_in_assembly/:pid/:aid', (req, res) => {
+    let sql = "SELECT * FROM Part_has_Assembly WHERE Part_PartID = '" + req.params.pid + "' AND Assembly_AssemblyID = '" + req.params.aid + "'";
+    let query = conn.query(sql, (err, results) => {
+        if(err) throw err;
+        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+    });
+});
+
+// update part-assembly relationship (basic CRUD)
+app.put('/api/parts_in_assembly/:pid/:aid/:count', (req, res) => {
+    let sql = "UPDATE Part_has_Assembly SET PartCountPerAssembly = " + req.params.count +
+        " WHERE Assembly_AssemblyID = '" + req.params.aid +
+        "' AND Part_PartID = '" + req.params.pid + "'";
+    let query = conn.query(sql, (err, results) => {
+        if(err) throw err;
+        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+    });
+});
+
+// delete part-assembly relationship (basic CRUD)
+app.delete('/api/parts_in_assembly/:pid/:aid', (req, res) => {
+    let sql = "DELETE FROM Part_has_Assembly WHERE Assembly_AssemblyID = '" + req.params.aid + "' AND Part_PartID = '" + req.params.pid + "'";
+    let query = conn.query(sql, (err, results) => {
+        if(err) throw err;
+        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+    });
+});
+
 app.listen(3000, () => {
   console.log('Server started on port 3000...');
 });
