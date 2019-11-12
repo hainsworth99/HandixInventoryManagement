@@ -40,11 +40,38 @@ app.post('/api/parts',(req, res) => {
         CurrentInventoryCount: req.body.CurrentInventoryCount,
         PartNotes: req.body.PartNotes
     };
-    let sql = "INSERT INTO part SET ?";
-    let query = conn.query(sql, data,(err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    // ensure data is populated with correct types
+    // PartID, PartName, QuantityPerPops, CostPerUnit, CurrentInventoryCount must be defined
+    if (typeof data['PartID'] === 'undefined' ||
+        typeof data['PartName'] === 'undefined' ||
+        typeof data['QuantityPerPops'] === 'undefined' ||
+        typeof data['CostPerUnit'] === 'undefined' ||
+        typeof data['CurrentInventoryCount'] === 'undefined'){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: provide all required fields", "response": null}));
+    }
+    // check that QuantityPerPops, CostPerUnit, and CurrentInventoryCount are non negative numeric values
+    else if (isNaN(data['QuantityPerPops']) || isNaN(data['CostPerUnit']) || isNaN(data['CurrentInventoryCount'])){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: QuantityPerPops, CostPerUnit, and CurrentInventoryCount must be numeric", "response": null}));
+    }
+    else if (data['QuantityPerPops']<0 || data['CostPerUnit']<0 || data['CurrentInventoryCount']<0){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: QuantityPerPops, CostPerUnit, and CurrentInventoryCount must be non negative", "response": null}));
+    }
+    else {
+        let sql = "INSERT INTO part SET ?";
+        let query = conn.query(sql, data,(err, results) => {
+            if(err){
+                if (err.errno == 1062){
+                    res.send(JSON.stringify({"status": 400, "error": "Bad request: part with PartID '" + req.body.PartID + "' already exits", "response": results}));
+                }
+                else {
+                    throw err;
+                }
+            }
+            else {
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            }
+        });
+    }
 });
 
 // read part (basic CRUD)
@@ -52,43 +79,79 @@ app.get('/api/parts/:id', (req, res) => {
     let sql = "SELECT * FROM part WHERE PartID='" + req.params.id + "'";
     let query = conn.query(sql, (err, results) => {
         if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        if (results.length != 0)
+            res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        else
+            res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
     });
 });
 
 // update part (basic CRUD)
 app.put('/api/parts/:id',(req, res) => {
-    let sql = "UPDATE part SET PartID='" + req.body.PartID +
-                        "', PartName='" + req.body.PartName +
-                        "', PartDescription='" + req.body.PartDescription +
-                        "', QuantityPerPops='" + req.body.QuantityPerPops +
-                        "', CostPerUnit='" + req.body.CostPerUnit +
-                        "', URLForReorder='" + req.body.URLForReorder +
-                        "', CurrentInventoryCount='" + req.body.CurrentInventoryCount +
-                        "', PartNotes='" + req.body.PartNotes +
-                         "' WHERE PartID='" + req.params.id + "'";
-    let query = conn.query(sql, (err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    // ensure data is populated with correct types
+    // PartID, PartName, QuantityPerPops, CostPerUnit, CurrentInventoryCount must be defined
+    if (typeof req.body.PartID === 'undefined' ||
+        typeof req.body.PartName === 'undefined' ||
+        typeof req.body.QuantityPerPops === 'undefined' ||
+        typeof req.body.CostPerUnit === 'undefined' ||
+        typeof req.body.CurrentInventoryCount === 'undefined'){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: provide all required fields", "response": null}));
+    }
+    // check that QuantityPerPops, CostPerUnit, and CurrentInventoryCount are non negative numeric values
+    else if (isNaN(req.body.QuantityPerPops) || isNaN(req.body.CostPerUnit) || isNaN(req.body.CurrentInventoryCount)){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: QuantityPerPops, CostPerUnit, and CurrentInventoryCount must be numeric", "response": null}));
+    }
+    else if (req.body.QuantityPerPops<0 || req.body.CostPerUnit<0 || req.body.CurrentInventoryCount<0){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: QuantityPerPops, CostPerUnit, and CurrentInventoryCount must be non negative", "response": null}));
+    }
+    else {
+        let sql = "UPDATE part SET PartID='" + req.body.PartID +
+                            "', PartName='" + req.body.PartName +
+                            "', PartDescription='" + req.body.PartDescription +
+                            "', QuantityPerPops='" + req.body.QuantityPerPops +
+                            "', CostPerUnit='" + req.body.CostPerUnit +
+                            "', URLForReorder='" + req.body.URLForReorder +
+                            "', CurrentInventoryCount='" + req.body.CurrentInventoryCount +
+                            "', PartNotes='" + req.body.PartNotes +
+                             "' WHERE PartID='" + req.params.id + "'";
+        let query = conn.query(sql, (err, results) => {
+            if(err) throw err;
+            if (results['affectedRows'] != 0)
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            else
+                res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
+        });
+    }
 });
 
 // delete part (basic CRUD)
 app.delete('/api/parts/:id',(req, res) => {
-  let sql = "DELETE FROM part WHERE PartID='"+req.params.id+"'";
-  let query = conn.query(sql, (err, results) => {
-    if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-  });
+    let sql = "DELETE FROM part WHERE PartID='"+req.params.id+"'";
+    let query = conn.query(sql, (err, results) => {
+        if(err) throw err;
+        if (results['affectedRows'] != 0)
+            res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        else
+            res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
+    });
 });
 
 // update current inventory count
 app.put('/api/parts/:id/:count', (req, res) => {
-    let sql = "UPDATE part SET CurrentInventoryCount = " + req.params.count + " WHERE PartID = '" + req.params.id + "'";
-    let query = conn.query(sql, (err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    // ensure count is numeric, non negative
+    if (isNaN(req.params.count) || req.params.count<0){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: count must be numeric, non negative", "response": null}));
+    }
+    else {
+        let sql = "UPDATE part SET CurrentInventoryCount = " + req.params.count + " WHERE PartID = '" + req.params.id + "'";
+        let query = conn.query(sql, (err, results) => {
+            if(err) throw err;
+            if (results['affectedRows'] != 0)
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            else
+                res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
+        });
+    }
 });
 
 /*
@@ -115,10 +178,33 @@ app.post('/api/assemblies', (req, res) => {
         AssemblyNotes: req.body.AssemblyNotes,
         ParentAssembly: req.body.ParentAssembly
     }
-    let query = conn.query(sql, data, (err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    // ensure data is populated with correct types
+    // AssemblyID, AssemblyName, CurrentInventoryCount, ParentAssembly must be defined
+    if (typeof data['AssemblyID'] === 'undefined' ||
+        typeof data['AssemblyName'] === 'undefined' ||
+        typeof data['ParentAssembly'] === 'undefined' ||
+        typeof data['CurrentInventoryCount'] === 'undefined'){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: provide all required fields", "response": null}));
+    }
+    // ensure CurrentInventoryCount is numeric, non negative
+    else if (isNaN(data['CurrentInventoryCount']) || data['CurrentInventoryCount']<0){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: CurrentInventoryCount must be numeric, non negative", "response": null}));
+    }
+    else{
+        let query = conn.query(sql, data, (err, results) => {
+            if(err){
+                if (err.errno == 1062){
+                    res.send(JSON.stringify({"status": 400, "error": "Bad request: assembly with AssemblyID '" + req.body.AssemblyID + "' already exits", "response": results}));
+                }
+                else {
+                    throw err;
+                }
+            }
+            else {
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            }
+        });
+    }
 });
 
 // read assembly (basic CRUD)
@@ -126,22 +212,43 @@ app.get('/api/assemblies/:id', (req, res) => {
     let sql = "SELECT * FROM assembly WHERE AssemblyID = '" + req.params.id + "'";
     let query = conn.query(sql, (err, results) => {
         if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        if (results.length != 0)
+            res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        else
+            res.send(JSON.stringify({"status": 404, "error": "Not found: assembly with AssemblyID '" + req.params.id + "' does not exist", "response": null}));
     });
 });
 
 // update assembly (basic CRUD)
 app.put('/api/assemblies/:id', (req, res) => {
-    let sql = "UPDATE assembly SET AssemblyID = '" + req.body.AssemblyID +
-        "', AssemblyName = '" + req.body.AssemblyName +
-        "', CurrentInventoryCount = '"+ req.body.CurrentInventoryCount +
-        "', AssemblyNotes = '" + req.body.AssemblyNotes +
-        "', ParentAssembly = '" + req.body.ParentAssembly +
-        "' WHERE AssemblyID = '" + req.body.AssemblyID + "'";
-    let query = conn.query(sql, (err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    // ensure data is populated with correct types
+    // AssemblyID, AssemblyName, CurrentInventoryCount, ParentAssembly must be defined
+    if (typeof req.body.AssemblyID === 'undefined' ||
+        typeof req.body.AssemblyName === 'undefined' ||
+        typeof req.body.CurrentInventoryCount === 'undefined' ||
+        typeof req.body.ParentAssembly === 'undefined'){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: provide all required fields", "response": null}));
+    }
+    // ensure CurrentInventoryCount is numeric, non negative
+    else if (isNaN(req.body.CurrentInventoryCount) || req.body.CurrentInventoryCount<0){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: CurrentInventoryCount must be numeric, non negative", "response": null}));
+    }
+    else {
+        let sql = "UPDATE assembly SET AssemblyID = '" + req.body.AssemblyID +
+            "', AssemblyName = '" + req.body.AssemblyName +
+            "', CurrentInventoryCount = '"+ req.body.CurrentInventoryCount +
+            "', AssemblyNotes = '" + req.body.AssemblyNotes +
+            "', ParentAssembly = '" + req.body.ParentAssembly +
+            "' WHERE AssemblyID = '" + req.params.id + "'";
+        let query = conn.query(sql, (err, results) => {
+            if(err) throw err;
+            if (results['affectedRows'] != 0)
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            else
+                res.send(JSON.stringify({"status": 404, "error": "Not found: assembly with AssemblyID '" + req.params.id + "' does not exist", "response": null}));
+
+        });
+    }
 });
 
 // delete assembly (basic CRUD)
@@ -149,7 +256,10 @@ app.delete('/api/assemblies/:id', (req, res) => {
     let sql = "DELETE FROM assembly WHERE AssemblyID = '" + req.params.id + "'";
     let query = conn.query(sql, (err, results) => {
         if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        if (results['affectedRows'] != 0)
+            res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        else
+            res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
     });
 });
 
@@ -158,17 +268,29 @@ app.get('/api/assemblies/children/:id', (req, res) => {
     let sql = "SELECT * FROM Assembly WHERE ParentAssembly = '" + req.params.id + "'";
     let query = conn.query(sql, (err, results) => {
         if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        if (results.length != 0)
+            res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        else
+            res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
     });
 });
 
 // update current inventory count
 app.put('/api/assemblies/:id/:count', (req, res) => {
-    let sql = "UPDATE assembly SET CurrentInventoryCount = " + req.params.count + " WHERE AssemblyID = '" + req.params.id + "'";
-    let query = conn.query(sql, (err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    // ensure count is numeric, non negative
+    if (isNaN(req.params.count) || req.params.count<0){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: count must be numeric, non negative", "response": null}));
+    }
+    else {
+        let sql = "UPDATE assembly SET CurrentInventoryCount = " + req.params.count + " WHERE AssemblyID = '" + req.params.id + "'";
+        let query = conn.query(sql, (err, results) => {
+            if(err) throw err;
+            if (results['affectedRows'] != 0)
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            else
+                res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
+        });
+    }
 });
 
 // increment assembly count - decrements child assembly and part counts
@@ -177,7 +299,7 @@ app.put('/api/assemblies/increment/:id/:count', (req, res) => {
     let increment_num = Number(req.params.count);
     if (isNaN(increment_num) || increment_num < 0){ // if invalid count
         res.status(400);
-        res.send(JSON.stringify({"status": 400, "error": "bad request: increment count must be valid", "response": null}));
+        res.send(JSON.stringify({"status": 400, "error": "bad request: count must be numeric, non negative", "response": null}));
     }
     else { // else
         // get parts and part counts for assembly
@@ -210,8 +332,11 @@ app.put('/api/assemblies/increment/:id/:count', (req, res) => {
             " WHERE AssemblyID = '" + req.params.id + "'";
         let query3 = conn.query(sql3, (err, results) => {
             if(err) throw err;
+            if (results['affectedRows'] != 0)
+                res.send(JSON.stringify({"status": 200, "error": null, "response": null}));
+            else
+                res.send(JSON.stringify({"status": 404, "error": "Not found: part with PartID '" + req.params.id + "' does not exist", "response": null}));
         });
-        res.send(JSON.stringify({"status": 200, "error": null, "response": null}));
     }
 });
 
@@ -228,11 +353,35 @@ app.post('/api/parts_in_assembly', (req, res) => {
         Part_PartID: req.body.PartID,
         PartCountPerAssembly: req.body.PartCountPerAssembly
     };
-    let sql = "INSERT INTO Part_has_Assembly SET ?";
-    let query = conn.query(sql, data, (err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    if (typeof data.Assembly_AssemblyID === 'undefined' ||
+            typeof data.Part_PartID === 'undefined' ||
+            typeof data.PartCountPerAssembly === 'undefined'){
+            res.send(JSON.stringify({"status": 400, "error": "bad request: provide all required fields", "response": null}));
+    }
+    else if (isNaN(data.PartCountPerAssembly) || data.PartCountPerAssembly<0){
+        res.send(JSON.stringify({"status": 400, "error": "bad request: part count per assembly must be numeric, non negative", "response": null}));
+    }
+    else {
+        let sql = "INSERT INTO Part_has_Assembly SET ?";
+        let query = conn.query(sql, data, (err, results) => {
+            if(err){
+                if (err.errno == 1062){ // duplicate entry error
+                    res.send(JSON.stringify({"status": 400, "error": "Bad request: part-assembly relationship with PartID '" +
+                    data.Part_PartID + "' and AssemblyID '" + data.Assembly_AssemblyID + "' already exists.", "response": results}));
+                }
+                else if (err.errno == 1452){ // foreign key constraint failure
+                    res.send(JSON.stringify({"status": 400, "error": "Bad request: fk constraint failure. Part '" +
+                    data.Part_PartID + "' or assembly '" + data.Assembly_AssemblyID + "' does not exist.", "response": results}));
+                }
+                else {
+                    throw err;
+                }
+            }
+            else{
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            }
+        });
+    }
 });
 
 // read part-assembly relationship (basic CRUD)
@@ -240,19 +389,32 @@ app.get('/api/parts_in_assembly/:pid/:aid', (req, res) => {
     let sql = "SELECT * FROM Part_has_Assembly WHERE Part_PartID = '" + req.params.pid + "' AND Assembly_AssemblyID = '" + req.params.aid + "'";
     let query = conn.query(sql, (err, results) => {
         if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        if (results.length != 0)
+            res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        else
+            res.send(JSON.stringify({"status": 404, "error": "Not found: part-assembly relationship with part'"
+            + req.params.pid + "' and assembly '" + req.params.aid + "' does not exist.", "response": null}));
     });
 });
 
 // update part-assembly relationship (basic CRUD)
 app.put('/api/parts_in_assembly/:pid/:aid/:count', (req, res) => {
-    let sql = "UPDATE Part_has_Assembly SET PartCountPerAssembly = " + req.params.count +
-        " WHERE Assembly_AssemblyID = '" + req.params.aid +
-        "' AND Part_PartID = '" + req.params.pid + "'";
-    let query = conn.query(sql, (err, results) => {
-        if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-    });
+    if (isNaN(req.params.count) || req.params.count<0){
+        res.send(JSON.stringify({"status": 400, "error": "Bad request: count must be numeric, non negative.", "response": null}));
+    }
+    else {
+        let sql = "UPDATE Part_has_Assembly SET PartCountPerAssembly = " + req.params.count +
+            " WHERE Assembly_AssemblyID = '" + req.params.aid +
+            "' AND Part_PartID = '" + req.params.pid + "'";
+        let query = conn.query(sql, (err, results) => {
+            if(err) throw err;
+            if (results['affectedRows'] != 0)
+                res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+            else
+                res.send(JSON.stringify({"status": 404, "error": "Not found: part-assembly relationship with part'"
+                + req.params.pid + "' and assembly '" + req.params.aid + "' does not exist.", "response": null}));
+        });
+    }
 });
 
 // delete part-assembly relationship (basic CRUD)
@@ -260,7 +422,11 @@ app.delete('/api/parts_in_assembly/:pid/:aid', (req, res) => {
     let sql = "DELETE FROM Part_has_Assembly WHERE Assembly_AssemblyID = '" + req.params.aid + "' AND Part_PartID = '" + req.params.pid + "'";
     let query = conn.query(sql, (err, results) => {
         if(err) throw err;
-        res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        if (results['affectedRows'] != 0)
+            res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
+        else
+            res.send(JSON.stringify({"status": 404, "error": "Not found: part-assembly relationship with part'"
+            + req.params.pid + "' and assembly '" + req.params.aid + "' does not exist.", "response": null}));
     });
 });
 
